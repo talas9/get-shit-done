@@ -324,10 +324,320 @@ function cmdHierarchyPartition(cwd, phaseDir, raw) {
   output(result, raw, JSON.stringify(result));
 }
 
+// ─── State reconcile ──────────────────────────────────────────────────────────
+
+/**
+ * Parse a STATE.md file into { frontmatter, body }.
+ *
+ * The body is split into named sections keyed by the section header string.
+ * Sections are stored in order in a Map for deterministic reconstruction.
+ */
+function parseStateMd(content) {
+  // Extract frontmatter (between first two --- lines)
+  const fmMatch = content.match(/^---\n([\s\S]*?)\n---\n?/);
+  const rawFrontmatter = fmMatch ? fmMatch[1] : '';
+  const bodyStart = fmMatch ? fmMatch[0].length : 0;
+  const bodyContent = content.slice(bodyStart);
+
+  // Parse frontmatter as a simple key:value map (no full YAML)
+  const fm = {};
+  for (const line of rawFrontmatter.split('\n')) {
+    const m = line.match(/^([a-zA-Z0-9_]+):\s*(.*)/);
+    if (m) {
+      fm[m[1]] = m[2].replace(/^"|"$/g, '').trim();
+    }
+    // Capture nested progress fields (indented)
+    const nested = line.match(/^\s{2}([a-zA-Z0-9_]+):\s*(.*)/);
+    if (nested) {
+      if (!fm.progress) fm.progress = {};
+      if (typeof fm.progress === 'object') {
+        fm.progress[nested[1]] = nested[2].trim();
+      }
+    }
+  }
+  fm._rawFrontmatter = rawFrontmatter;
+
+  // Split body into sections by ## headers, preserving order
+  const sections = new Map();
+  const sectionPattern = /^(#{1,3} .+)$/gm;
+  let lastHeader = null;
+  let lastIndex = 0;
+
+  const matches = [...bodyContent.matchAll(sectionPattern)];
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i];
+    if (lastHeader !== null) {
+      sections.set(lastHeader, bodyContent.slice(lastIndex, m.index));
+    }
+    lastHeader = m[1];
+    lastIndex = m.index + m[1].length;
+  }
+  if (lastHeader !== null) {
+    sections.set(lastHeader, bodyContent.slice(lastIndex));
+  }
+
+  return { fm, sections };
+}
+
+/**
+ * Extract list items (lines starting with "- ") from a section body string.
+ * Returns an array of trimmed item strings.
+ */
+function extractListItems(sectionBody) {
+  const items = [];
+  for (const line of sectionBody.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('- ')) {
+      items.push(trimmed.slice(2).trim());
+    }
+  }
+  return items;
+}
+
+/**
+ * Merge STATE.md changes from all registered worktrees back to main STATE.md.
+ *
+ * Merge rules:
+ * - Frontmatter scalars (status, stopped_at, last_updated, last_activity):
+ *   last-write-wins by last_updated ISO timestamp comparison.
+ * - progress.completed_plans: take highest value.
+ * - ## Performance Metrics: append new rows (deduplicated).
+ * - ### Decisions / ### Pending Todos: append new items (deduplicated).
+ * - ## Session Continuity: last-write-wins (from STATE.md with most recent last_updated).
+ *
+ * Usage: state-reconcile
+ */
+function cmdStateReconcile(cwd, raw) {
+  const mainStatePath = path.join(cwd, '.planning', 'STATE.md');
+
+  if (!fs.existsSync(mainStatePath)) {
+    error('STATE.md not found in .planning/');
+  }
+
+  const registry = readRegistry(cwd);
+  if (registry.worktrees.length === 0) {
+    const msg = 'nothing to reconcile: no worktrees registered';
+    process.stdout.write(msg + '\n');
+    process.exit(0);
+  }
+
+  // Parse main STATE.md
+  const mainContent = fs.readFileSync(mainStatePath, 'utf-8');
+  const mainParsed = parseStateMd(mainContent);
+
+  // Parse each active worktree's STATE.md
+  const allParsed = [{ parsed: mainParsed, source: 'main' }];
+  let skipped = 0;
+
+  for (const entry of registry.worktrees) {
+    const wtStatePath = path.join(
+      path.isAbsolute(entry.path) ? entry.path : path.join(cwd, entry.path),
+      '.planning',
+      'STATE.md'
+    );
+
+    if (!fs.existsSync(wtStatePath)) {
+      process.stderr.write(`Warning: missing STATE.md for worktree ${entry.stream} (${wtStatePath})\n`);
+      skipped++;
+      continue;
+    }
+
+    const wtContent = fs.readFileSync(wtStatePath, 'utf-8');
+    const wtParsed = parseStateMd(wtContent);
+    allParsed.push({ parsed: wtParsed, source: entry.stream });
+  }
+
+  // ─── Merge frontmatter (last-write-wins by last_updated timestamp) ─────────
+
+  // Find the most recent STATE.md by last_updated
+  let newestFm = mainParsed.fm;
+  let newestTimestamp = mainParsed.fm.last_updated || '';
+
+  for (const { parsed } of allParsed) {
+    const ts = parsed.fm.last_updated || '';
+    if (ts > newestTimestamp) {
+      newestTimestamp = ts;
+      newestFm = parsed.fm;
+    }
+  }
+
+  // For progress.completed_plans, take the highest value
+  let maxCompletedPlans = 0;
+  for (const { parsed } of allParsed) {
+    const fm = parsed.fm;
+    if (fm.progress && typeof fm.progress === 'object') {
+      const val = parseInt(fm.progress.completed_plans, 10) || 0;
+      if (val > maxCompletedPlans) maxCompletedPlans = val;
+    }
+  }
+
+  // Build merged frontmatter YAML using raw frontmatter from the newest STATE.md
+  // but updating completed_plans if we found a higher value
+  let mergedFrontmatter = newestFm._rawFrontmatter;
+  if (maxCompletedPlans > 0) {
+    // Update completed_plans in the raw frontmatter string
+    mergedFrontmatter = mergedFrontmatter.replace(
+      /(completed_plans:\s*)\d+/,
+      `$1${maxCompletedPlans}`
+    );
+  }
+
+  // ─── Merge body sections ───────────────────────────────────────────────────
+
+  // Start with main's sections as the base
+  const mergedSections = new Map(mainParsed.sections);
+
+  // Merge Performance Metrics table rows (lines starting with |)
+  const metricsHeader = [...mergedSections.keys()].find(k => k.includes('Performance Metrics'));
+  if (metricsHeader) {
+    const mainMetricsBody = mergedSections.get(metricsHeader) || '';
+    const mainRows = new Set(
+      mainMetricsBody.split('\n').filter(l => l.trim().startsWith('|')).map(l => l.trim())
+    );
+
+    for (const { parsed } of allParsed.slice(1)) {
+      const wtMetricsHeader = [...parsed.sections.keys()].find(k => k.includes('Performance Metrics'));
+      if (!wtMetricsHeader) continue;
+      const wtMetricsBody = parsed.sections.get(wtMetricsHeader) || '';
+      for (const row of wtMetricsBody.split('\n')) {
+        const trimmed = row.trim();
+        if (trimmed.startsWith('|') && !trimmed.startsWith('|----') && trimmed !== '| - | - | - | - |') {
+          // Check if this row is a data row (not header or separator)
+          const cells = trimmed.split('|').map(c => c.trim()).filter(Boolean);
+          if (cells.length > 0 && cells[0] !== 'Phase' && cells[0] !== '-') {
+            if (!mainRows.has(trimmed)) {
+              mainRows.add(trimmed);
+            }
+          }
+        }
+      }
+    }
+
+    // Reconstruct metrics section preserving header and separator rows
+    const lines = mainMetricsBody.split('\n');
+    const headerLines = [];
+    const dataRows = [];
+    let pastHeader = false;
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('|')) {
+        if (!pastHeader) {
+          headerLines.push(line);
+          if (trimmed.startsWith('|----')) pastHeader = true;
+        } else if (trimmed !== '| - | - | - | - |') {
+          dataRows.push(line);
+        }
+      } else {
+        if (!pastHeader) headerLines.push(line);
+        else dataRows.push(line);
+      }
+    }
+
+    // Add new rows from worktrees (not already present)
+    const existingDataSet = new Set(dataRows.map(r => r.trim()));
+    for (const { parsed } of allParsed.slice(1)) {
+      const wtMetricsHeader = [...parsed.sections.keys()].find(k => k.includes('Performance Metrics'));
+      if (!wtMetricsHeader) continue;
+      const wtMetricsBody = parsed.sections.get(wtMetricsHeader) || '';
+      for (const row of wtMetricsBody.split('\n')) {
+        const trimmed = row.trim();
+        if (trimmed.startsWith('|') && !trimmed.startsWith('|----') &&
+            trimmed !== '| - | - | - | - |' && trimmed !== '| Phase | Plans | Total | Avg/Plan |') {
+          const cells = trimmed.split('|').map(c => c.trim()).filter(Boolean);
+          if (cells.length > 0 && cells[0] !== 'Phase' && cells[0] !== '-') {
+            if (!existingDataSet.has(trimmed)) {
+              dataRows.push(row);
+              existingDataSet.add(trimmed);
+            }
+          }
+        }
+      }
+    }
+
+    const newMetricsBody = [...headerLines, ...dataRows].join('\n');
+    mergedSections.set(metricsHeader, newMetricsBody);
+  }
+
+  // Merge ### Decisions and ### Pending Todos (append, deduplicate)
+  for (const subSection of ['### Decisions', '### Pending Todos']) {
+    const sectionKey = [...mergedSections.keys()].find(k => k === subSection);
+    if (!sectionKey) continue;
+
+    const mainBody = mergedSections.get(sectionKey) || '';
+    const seenItems = new Set(extractListItems(mainBody).map(i => i.toLowerCase()));
+    const allItems = [...extractListItems(mainBody)];
+
+    for (const { parsed } of allParsed.slice(1)) {
+      const wtKey = [...parsed.sections.keys()].find(k => k === subSection);
+      if (!wtKey) continue;
+      const wtBody = parsed.sections.get(wtKey) || '';
+      for (const item of extractListItems(wtBody)) {
+        const normalized = item.toLowerCase();
+        if (!seenItems.has(normalized)) {
+          seenItems.add(normalized);
+          allItems.push(item);
+        }
+      }
+    }
+
+    // Reconstruct: preserve existing non-list content, then list items
+    const lines = mainBody.split('\n');
+    const nonListLines = [];
+    let firstListSeen = false;
+    for (const line of lines) {
+      if (line.trim().startsWith('- ')) {
+        firstListSeen = true;
+      } else if (!firstListSeen) {
+        nonListLines.push(line);
+      }
+    }
+
+    const newBody = nonListLines.join('\n') + '\n' + allItems.map(i => `- ${i}`).join('\n') + '\n';
+    mergedSections.set(sectionKey, newBody);
+  }
+
+  // ## Session Continuity: last-write-wins (take from the newest STATE.md)
+  const sessionHeader = [...mergedSections.keys()].find(k => k.includes('Session Continuity'));
+  if (sessionHeader) {
+    // Find the section body from the newest parsed STATE.md
+    let newestSessionBody = mergedSections.get(sessionHeader);
+    for (const { parsed } of allParsed.slice(1)) {
+      const ts = parsed.fm.last_updated || '';
+      const wtSessionHeader = [...parsed.sections.keys()].find(k => k.includes('Session Continuity'));
+      if (wtSessionHeader && ts === newestTimestamp) {
+        newestSessionBody = parsed.sections.get(wtSessionHeader);
+        break;
+      }
+    }
+    if (newestSessionBody !== undefined) {
+      mergedSections.set(sessionHeader, newestSessionBody);
+    }
+  }
+
+  // ─── Reconstruct STATE.md ──────────────────────────────────────────────────
+
+  let result = `---\n${mergedFrontmatter}\n---\n`;
+  for (const [header, body] of mergedSections) {
+    result += header + body;
+  }
+
+  fs.writeFileSync(mainStatePath, result, 'utf-8');
+
+  const mergedCount = allParsed.length - 1;
+  const summary = {
+    merged: true,
+    worktrees_merged: mergedCount,
+    worktrees_skipped: skipped,
+  };
+
+  output(summary, raw, `reconciled ${mergedCount} worktree(s) into main STATE.md`);
+}
+
 module.exports = {
   readRegistry,
   writeRegistry,
   cmdWorktreeCreate,
   cmdWorktreeRemove,
   cmdHierarchyPartition,
+  cmdStateReconcile,
 };
