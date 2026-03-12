@@ -61,6 +61,11 @@
  * Todos:
  *   todo complete <filename>           Move todo from pending to completed
  *
+ * Hierarchy Operations:
+ *   worktree-create <stream>           Create a git worktree for a hierarchy stream
+ *   worktree-remove <stream>           Remove a git worktree and its registry entry
+ *     [--force]                          Succeed even if worktree directory is missing
+ *
  * Scaffolding:
  *   scaffold context --phase <N>       Create CONTEXT.md template
  *   scaffold uat --phase <N>           Create UAT.md template
@@ -139,6 +144,7 @@ const milestone = require('./lib/milestone.cjs');
 const commands = require('./lib/commands.cjs');
 const init = require('./lib/init.cjs');
 const frontmatter = require('./lib/frontmatter.cjs');
+const hierarchy = require('./lib/hierarchy.cjs');
 
 // ─── CLI Router ───────────────────────────────────────────────────────────────
 
@@ -581,6 +587,16 @@ async function main() {
         limit: limitIdx !== -1 ? parseInt(args[limitIdx + 1], 10) : 10,
         freshness: freshnessIdx !== -1 ? args[freshnessIdx + 1] : null,
       }, raw);
+      break;
+    }
+
+    case 'worktree-create': {
+      hierarchy.cmdWorktreeCreate(cwd, args[1], raw);
+      break;
+    }
+
+    case 'worktree-remove': {
+      hierarchy.cmdWorktreeRemove(cwd, args[1], args.includes('--force'), raw);
       break;
     }
 
