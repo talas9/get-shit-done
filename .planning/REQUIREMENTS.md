@@ -21,7 +21,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **FOUND-03**: `worktree-create` command with timestamped branch names to avoid "branch already checked out" errors
 - [x] **FOUND-04**: `worktree-remove` command with force-cleanup for failed/orphaned worktrees
 - [x] **FOUND-05**: Worktree registry file (`.planning/worktree-registry.json`) tracking active worktrees for cleanup
-- [ ] **FOUND-06**: `state-reconcile` command for merging STATE.md changes from multiple worktrees back to main
+- [x] **FOUND-06**: `state-reconcile` command for merging STATE.md changes from multiple worktrees back to main
 - [x] **FOUND-07**: Config schema extension — `hierarchy` section with `enabled` (bool) and `max_l2_agents` (int) fields. No separate worktree toggle — worktrees are required when hierarchy is on
 
 ### Agent Definition
@@ -95,7 +95,7 @@ Requirements for initial release. Each maps to roadmap phases.
 | FOUND-03 | Phase 1 | Complete |
 | FOUND-04 | Phase 1 | Complete |
 | FOUND-05 | Phase 1 | Complete |
-| FOUND-06 | Phase 1 | Pending |
+| FOUND-06 | Phase 1 | Complete |
 | FOUND-07 | Phase 1 | Complete |
 | AGNT-01 | Phase 2 | Pending |
 | AGNT-02 | Phase 2 | Pending |

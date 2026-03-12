@@ -12,7 +12,7 @@ This milestone adds an optional 3-tier execution hierarchy (L1 orchestrator → 
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation Utilities** - Worktree lifecycle, stream partitioning, and state reconciliation tooling in gsd-tools.cjs
+- [x] **Phase 1: Foundation Utilities** - Worktree lifecycle, stream partitioning, and state reconciliation tooling in gsd-tools.cjs (completed 2026-03-12)
 - [ ] **Phase 2: Agent Definitions** - L2 sub-orchestrator and L3 partitioner agent personas with correct tool restrictions
 - [ ] **Phase 3: L1 Dispatch Integration** - execute-phase.md hierarchy dispatch branch wiring L1 to L2 streams
 - [ ] **Phase 4: Validation and Hardening** - End-to-end tests proving hierarchy correctness and zero regression on flat mode
@@ -29,7 +29,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. `gsd-tools.cjs hierarchy-partition` groups a set of plans into non-conflicting streams that respect existing wave dependencies
   4. `gsd-tools.cjs state-reconcile` merges STATE.md task-completion entries from multiple worktrees back to main without data loss
   5. Running GSD with `hierarchy.enabled: false` (the default) produces behavior identical to today — no new code paths are reachable
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 01-01-PLAN.md -- Config schema, registry helpers, worktree lifecycle (create/remove)
@@ -80,7 +80,7 @@ Note: Phase 1 and Phase 2 have no shared files and no cross-dependencies — the
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation Utilities | 2/3 | In Progress|  |
+| 1. Foundation Utilities | 3/3 | Complete   | 2026-03-12 |
 | 2. Agent Definitions | 0/TBD | Not started | - |
 | 3. L1 Dispatch Integration | 0/TBD | Not started | - |
 | 4. Validation and Hardening | 0/TBD | Not started | - |
