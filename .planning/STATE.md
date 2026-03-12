@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-03-12T06:33:37.324Z"
+stopped_at: Completed 01-02-PLAN.md
+last_updated: "2026-03-12T06:48:28.503Z"
 last_activity: 2026-03-11 — Roadmap created, ready to plan Phase 1
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -51,6 +51,7 @@ Progress: [░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 01 P01 | 5min | 2 tasks | 7 files |
+| Phase 01-foundation-utilities P02 | 11min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,9 @@ Recent decisions affecting current work:
 - [Phase 01]: hierarchy.enabled defaults to false — zero behavior change for existing users (feature flag off by default)
 - [Phase 01]: readRegistry returns { worktrees: [] } on any failure — never crashes on missing or corrupt registry
 - [Phase 01]: cmdWorktreeRemove cleans registry entry even when git operations fail — self-healing for orphaned worktrees
+- [Phase 01-foundation-utilities]: Union-find chosen for O(n*alpha) file-overlap grouping in hierarchy-partition — simpler and faster than graph traversal for small plan counts
+- [Phase 01-foundation-utilities]: hierarchy-partition stream cap enforced by merging two smallest streams until count <= max_l2_agents
+- [Phase 01-foundation-utilities]: worktree_branch is always null at partition time — set later by worktree-create during dispatch
 
 ### Pending Todos
 
@@ -78,6 +82,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-12T06:33:37.322Z
-Stopped at: Completed 01-01-PLAN.md
-Resume file: .planning/phases/01-foundation-utilities/01-01-SUMMARY.md
+Last session: 2026-03-12T06:48:28.501Z
+Stopped at: Completed 01-02-PLAN.md
+Resume file: None

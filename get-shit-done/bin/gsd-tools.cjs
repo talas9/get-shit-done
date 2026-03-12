@@ -66,6 +66,7 @@
  *   worktree-create <stream>           Create a git worktree for a hierarchy stream
  *   worktree-remove <stream>           Remove a git worktree and its registry entry
  *     [--force]                          Succeed even if worktree directory is missing
+ *   state-reconcile                    Merge STATE.md from worktree branches to main
  *
  * Scaffolding:
  *   scaffold context --phase <N>       Create CONTEXT.md template
@@ -607,6 +608,11 @@ async function main() {
 
     case 'worktree-remove': {
       hierarchy.cmdWorktreeRemove(cwd, args[1], args.includes('--force'), raw);
+      break;
+    }
+
+    case 'state-reconcile': {
+      hierarchy.cmdStateReconcile(cwd, raw);
       break;
     }
 

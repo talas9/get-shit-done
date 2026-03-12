@@ -17,7 +17,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Foundation
 
 - [x] **FOUND-01**: Feature flag `hierarchy.enabled` in config.json, default false — zero behavior change when disabled. Hierarchy activates ONLY when both `parallelization: true` AND `hierarchy.enabled: true`. Worktrees are implicit (required, not optional)
-- [ ] **FOUND-02**: `hierarchy-partition` command in gsd-tools.cjs — dependency-aware plan grouping into non-conflicting streams
+- [x] **FOUND-02**: `hierarchy-partition` command in gsd-tools.cjs — dependency-aware plan grouping into non-conflicting streams
 - [x] **FOUND-03**: `worktree-create` command with timestamped branch names to avoid "branch already checked out" errors
 - [x] **FOUND-04**: `worktree-remove` command with force-cleanup for failed/orphaned worktrees
 - [x] **FOUND-05**: Worktree registry file (`.planning/worktree-registry.json`) tracking active worktrees for cleanup
@@ -91,7 +91,7 @@ Requirements for initial release. Each maps to roadmap phases.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | FOUND-01 | Phase 1 | Complete |
-| FOUND-02 | Phase 1 | Pending |
+| FOUND-02 | Phase 1 | Complete |
 | FOUND-03 | Phase 1 | Complete |
 | FOUND-04 | Phase 1 | Complete |
 | FOUND-05 | Phase 1 | Complete |
