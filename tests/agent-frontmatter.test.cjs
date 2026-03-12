@@ -179,3 +179,16 @@ describe('AGENT: required frontmatter fields', () => {
     });
   }
 });
+
+// ─── MCP Isolation ───────────────────────────────────────────────────────────
+
+describe('MCP: mcpServers isolation', () => {
+  test('gsd-sub-orchestrator has mcpServers: [] for MCP isolation', () => {
+    const content = fs.readFileSync(path.join(AGENTS_DIR, 'gsd-sub-orchestrator.md'), 'utf-8');
+    const frontmatter = content.split('---')[1] || '';
+    assert.ok(
+      frontmatter.includes('mcpServers: []'),
+      'gsd-sub-orchestrator missing mcpServers: [] in frontmatter'
+    );
+  });
+});
