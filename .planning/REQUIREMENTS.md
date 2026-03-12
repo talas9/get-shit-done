@@ -42,11 +42,11 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Dispatch Integration
 
 - [x] **DISP-01**: Conditional branch in `execute-phase.md` — checks `parallelization: true` AND `hierarchy.enabled: true`, otherwise uses existing flat path unchanged. Hierarchy applies to execution workflow ONLY (not research, planning, or verification)
-- [ ] **DISP-02**: L1 spawns all L2s with `run_in_background: true` — L1 never blocks
-- [ ] **DISP-03**: Each L2 spawned in its own worktree (worktrees are required, not optional, when hierarchy is active)
-- [ ] **DISP-04**: File-based completion detection — L2 writes sentinel file before returning (fallback for unreliable SendMessage)
-- [ ] **DISP-05**: L1 merges worktrees back to main branch after all L2s complete
-- [ ] **DISP-06**: Graceful fallback — any hierarchy failure auto-falls back to flat execution mode with user notification
+- [x] **DISP-02**: L1 spawns all L2s with `run_in_background: true` — L1 never blocks
+- [x] **DISP-03**: Each L2 spawned in its own worktree (worktrees are required, not optional, when hierarchy is active)
+- [x] **DISP-04**: File-based completion detection — L2 writes sentinel file before returning (fallback for unreliable SendMessage)
+- [x] **DISP-05**: L1 merges worktrees back to main branch after all L2s complete
+- [x] **DISP-06**: Graceful fallback — any hierarchy failure auto-falls back to flat execution mode with user notification
 
 ### Validation
 
@@ -107,11 +107,11 @@ Requirements for initial release. Each maps to roadmap phases.
 | PART-03 | Phase 2 | Complete |
 | PART-04 | Phase 2 | Complete |
 | DISP-01 | Phase 3 | Complete |
-| DISP-02 | Phase 3 | Pending |
-| DISP-03 | Phase 3 | Pending |
-| DISP-04 | Phase 3 | Pending |
-| DISP-05 | Phase 3 | Pending |
-| DISP-06 | Phase 3 | Pending |
+| DISP-02 | Phase 3 | Complete |
+| DISP-03 | Phase 3 | Complete |
+| DISP-04 | Phase 3 | Complete |
+| DISP-05 | Phase 3 | Complete |
+| DISP-06 | Phase 3 | Complete |
 | VALID-01 | Phase 4 | Pending |
 | VALID-02 | Phase 4 | Pending |
 | VALID-03 | Phase 4 | Pending |

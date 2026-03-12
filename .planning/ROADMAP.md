@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation Utilities** - Worktree lifecycle, stream partitioning, and state reconciliation tooling in gsd-tools.cjs (completed 2026-03-12)
 - [x] **Phase 2: Agent Definitions** - L2 sub-orchestrator and L3 partitioner agent personas with correct tool restrictions (completed 2026-03-12)
-- [ ] **Phase 3: L1 Dispatch Integration** - execute-phase.md hierarchy dispatch branch wiring L1 to L2 streams
+- [x] **Phase 3: L1 Dispatch Integration** - execute-phase.md hierarchy dispatch branch wiring L1 to L2 streams (completed 2026-03-12)
 - [ ] **Phase 4: Validation and Hardening** - End-to-end tests proving hierarchy correctness and zero regression on flat mode
 
 ## Phase Details
@@ -62,7 +62,7 @@ Plans:
   3. L1 detects L2 completion via sentinel file presence (`STREAM_COMPLETE.md` or `STREAM_FAILED.md`) rather than blocking on SendMessage delivery
   4. After all L2 streams complete, L1 merges all worktree branches back to main and removes the worktrees
   5. Any hierarchy failure (worktree creation, L2 spawn, merge conflict) automatically falls back to flat execution mode and notifies the user
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 03-01-PLAN.md -- Patch init.cjs to expose hierarchy config in execute-phase init output
@@ -90,5 +90,5 @@ Note: Phase 1 and Phase 2 have no shared files and no cross-dependencies — the
 |-------|----------------|--------|-----------|
 | 1. Foundation Utilities | 3/3 | Complete   | 2026-03-12 |
 | 2. Agent Definitions | 2/2 | Complete   | 2026-03-12 |
-| 3. L1 Dispatch Integration | 1/2 | In Progress|  |
+| 3. L1 Dispatch Integration | 2/2 | Complete   | 2026-03-12 |
 | 4. Validation and Hardening | 0/TBD | Not started | - |
