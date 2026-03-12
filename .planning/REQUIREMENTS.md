@@ -53,7 +53,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **VALID-01**: Smoke test confirming L2 can spawn L3 via Agent() tool (not blocked by nested team restrictions)
 - [ ] **VALID-02**: End-to-end test — hierarchy-enabled execution produces equivalent results to flat mode
 - [ ] **VALID-03**: Worktree cleanup verification — no orphaned worktrees after completion or failure
-- [ ] **VALID-04**: Feature flag off → zero behavior change for existing GSD users (regression test)
+- [x] **VALID-04**: Feature flag off → zero behavior change for existing GSD users (regression test)
 
 ## v2 Requirements
 
@@ -115,7 +115,7 @@ Requirements for initial release. Each maps to roadmap phases.
 | VALID-01 | Phase 4 | Pending |
 | VALID-02 | Phase 4 | Pending |
 | VALID-03 | Phase 4 | Pending |
-| VALID-04 | Phase 4 | Pending |
+| VALID-04 | Phase 4 | Complete |
 
 **Coverage:**
 - v1 requirements: 23 total

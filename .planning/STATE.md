@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 03-02-PLAN.md
-last_updated: "2026-03-12T10:43:47.399Z"
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-03-12T11:04:51.244Z"
 last_activity: 2026-03-11 — Roadmap created, ready to plan Phase 1
 progress:
-  total_phases: 4
+  total_phases: 5
   completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 11
+  completed_plans: 8
   percent: 0
 ---
 
@@ -57,6 +57,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 02-agent-definitions P02 | 7min | 1 tasks | 1 files |
 | Phase 03-l1-dispatch-integration P01 | 2 | 1 tasks | 2 files |
 | Phase 03-l1-dispatch-integration P02 | 2 | 1 tasks | 1 files |
+| Phase 04-validation-and-hardening P01 | 4 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,8 @@ Recent decisions affecting current work:
 - [Phase 03-l1-dispatch-integration]: No changes to core.cjs needed — loadConfig() already returns hierarchy defaults; init.cjs only had to forward them
 - [Phase 03-l1-dispatch-integration]: hierarchy_dispatch fallback on single-stream partition result — no parallelism benefit, simpler to run flat
 - [Phase 03-l1-dispatch-integration]: Merge conflict does not fall back to flat after plans already executed in worktrees — would double-run plans
+- [Phase 04-validation-and-hardening]: captureOutput pattern reused for return-shape assertions — consistent with existing hierarchy test helpers
+- [Phase 04-validation-and-hardening]: Fixture plans sandboxed to .planning/phases/04-e2e-fixture/scratch-{a,b}.txt — no real project files touched
 
 ### Pending Todos
 
@@ -97,6 +100,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-12T10:40:24.007Z
-Stopped at: Completed 03-02-PLAN.md
+Last session: 2026-03-12T11:04:51.242Z
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None
