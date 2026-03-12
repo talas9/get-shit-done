@@ -150,6 +150,24 @@ describe('cmdWorktreeCreate', () => {
     const worktreePath = path.join(tmpDir, '.claude', 'worktrees', 'disk-stream');
     assert.ok(fs.existsSync(worktreePath), 'worktree directory should exist on disk');
   });
+
+  // VALID-04: return-value shape
+  test('returns { created: true, stream, branch, path } on success (VALID-04)', () => {
+    let captured = '';
+    const origWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (str) => { captured += str; return true; };
+    try {
+      cmdWorktreeCreate(tmpDir, 'shape-stream', false);
+    } catch { /* process.exit(0) throws in test environment */ }
+    finally {
+      process.stdout.write = origWrite;
+    }
+    const result = JSON.parse(captured);
+    assert.strictEqual(result.created, true, 'created should be true');
+    assert.strictEqual(result.stream, 'shape-stream', 'stream should match');
+    assert.ok(typeof result.branch === 'string' && result.branch.length > 0, 'branch should be a non-empty string');
+    assert.ok(typeof result.path === 'string' && result.path.length > 0, 'path should be a non-empty string');
+  });
 });
 
 // ─── cmdWorktreeRemove ────────────────────────────────────────────────────────
@@ -209,6 +227,24 @@ describe('cmdWorktreeRemove', () => {
     // Registry entry should be removed
     const updatedRegistry = readRegistry(tmpDir);
     assert.strictEqual(updatedRegistry.worktrees.length, 0, 'registry should be empty after force remove');
+  });
+
+  // VALID-04: return-value shape
+  test('returns { removed: true, stream } on successful removal (VALID-04)', () => {
+    cmdWorktreeCreate(tmpDir, 'remove-shape-stream', false);
+
+    let captured = '';
+    const origWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (str) => { captured += str; return true; };
+    try {
+      cmdWorktreeRemove(tmpDir, 'remove-shape-stream', false, false);
+    } catch { /* process.exit(0) throws in test environment */ }
+    finally {
+      process.stdout.write = origWrite;
+    }
+    const result = JSON.parse(captured);
+    assert.strictEqual(result.removed, true, 'removed should be true');
+    assert.strictEqual(result.stream, 'remove-shape-stream', 'stream should match');
   });
 
   // FOUND-04c: removes registry entry even when git operations fail (self-healing)
@@ -659,6 +695,43 @@ describe('cmdStateReconcile', () => {
 
     const result = fs.readFileSync(path.join(tmpDir, '.planning', 'STATE.md'), 'utf-8');
     assert.ok(result.includes('Main decision'), 'main decisions should still be present');
+  });
+
+  // VALID-04: return-value shape
+  test('returns { merged: true, worktrees_merged: N } on successful reconcile (VALID-04)', () => {
+    const wt1Dir = path.join(tmpDir, '.claude', 'worktrees', 'reconcile-shape-wt');
+    fs.mkdirSync(path.join(wt1Dir, '.planning'), { recursive: true });
+
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'STATE.md'),
+      buildStateContent({ lastUpdated: '2026-01-01T00:00:00Z', decisions: ['Main decision'] }),
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(wt1Dir, '.planning', 'STATE.md'),
+      buildStateContent({ lastUpdated: '2026-03-01T00:00:00Z', decisions: ['WT decision'] }),
+      'utf-8'
+    );
+
+    writeRegistry(tmpDir, {
+      worktrees: [
+        { stream: 'reconcile-shape-wt', branch: 'gsd/hierarchy/wt', path: '.claude/worktrees/reconcile-shape-wt', created_at: '2026-01-01T00:00:00Z', status: 'active' },
+      ],
+    });
+
+    let captured = '';
+    const origWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (str) => { captured += str; return true; };
+    try {
+      cmdStateReconcile(tmpDir, false);
+    } catch { /* process.exit(0) throws in test environment */ }
+    finally {
+      process.stdout.write = origWrite;
+    }
+    const result = JSON.parse(captured);
+    assert.strictEqual(result.merged, true, 'merged should be true');
+    assert.strictEqual(typeof result.worktrees_merged, 'number', 'worktrees_merged should be a number');
+    assert.strictEqual(result.worktrees_merged, 1, 'worktrees_merged should be 1');
   });
 
   // Edge case: empty registry produces no changes
