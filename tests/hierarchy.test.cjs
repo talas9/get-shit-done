@@ -1,9 +1,10 @@
 /**
  * GSD Tools Tests - hierarchy.cjs
  *
- * Tests for worktree lifecycle commands (create/remove) and registry helpers.
+ * Tests for worktree lifecycle commands (create/remove), registry helpers,
+ * and state-reconcile merge logic.
  *
- * Requirements: FOUND-03, FOUND-04, FOUND-05
+ * Requirements: FOUND-03, FOUND-04, FOUND-05, FOUND-06
  */
 
 const { test, describe, beforeEach, afterEach } = require('node:test');
@@ -19,6 +20,8 @@ const {
   writeRegistry,
   cmdWorktreeCreate,
   cmdWorktreeRemove,
+  cmdStateReconcile,
+  cmdHierarchyPartition,
 } = require('../get-shit-done/bin/lib/hierarchy.cjs');
 
 // ─── readRegistry / writeRegistry ─────────────────────────────────────────────
@@ -229,5 +232,447 @@ describe('cmdWorktreeRemove', () => {
     // Registry should be cleaned up regardless of git failures
     const updatedRegistry = readRegistry(tmpDir);
     assert.strictEqual(updatedRegistry.worktrees.length, 0, 'stale entry should be removed from registry');
+  });
+});
+
+// ─── cmdHierarchyPartition ────────────────────────────────────────────────────
+
+/**
+ * Helper: write a PLAN.md file to a temp phase directory with specified frontmatter.
+ */
+function writePlanFile(phaseDir, planId, frontmatterFields) {
+  const fileName = `${planId}-PLAN.md`;
+  const fields = Object.entries(frontmatterFields)
+    .map(([k, v]) => {
+      if (Array.isArray(v)) {
+        if (v.length === 0) return `${k}: []`;
+        return `${k}:\n${v.map(item => `  - ${item}`).join('\n')}`;
+      }
+      return `${k}: ${v}`;
+    })
+    .join('\n');
+  const content = `---\n${fields}\n---\n\n# Plan ${planId}\n`;
+  fs.writeFileSync(path.join(phaseDir, fileName), content, 'utf-8');
+}
+
+/** Capture stdout from a function that calls process.stdout.write then process.exit(0). */
+function captureOutput(fn) {
+  let captured = '';
+  const origWrite = process.stdout.write.bind(process.stdout);
+  process.stdout.write = (str) => { captured += str; return true; };
+  try {
+    fn();
+  } catch { /* process.exit(0) throws in test environment — ignore */ }
+  finally {
+    process.stdout.write = origWrite;
+  }
+  return captured;
+}
+
+describe('cmdHierarchyPartition', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-partition-test-'));
+    fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+    // Default config: max_l2_agents = 3
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify({ hierarchy: { max_l2_agents: 3 } }, null, 2),
+      'utf-8'
+    );
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  // Empty directory
+  test('returns { streams: [] } for an empty phase directory', () => {
+    const phaseDir = path.join(tmpDir, 'empty-phase');
+    fs.mkdirSync(phaseDir);
+    const raw = captureOutput(() => cmdHierarchyPartition(tmpDir, phaseDir, true));
+    const result = JSON.parse(raw);
+    assert.deepStrictEqual(result, { streams: [] });
+  });
+
+  // FOUND-02a: Wave grouping
+  test('groups plans by ascending wave order, all plans present (FOUND-02a)', () => {
+    const phaseDir = path.join(tmpDir, 'wave-phase');
+    fs.mkdirSync(phaseDir);
+    writePlanFile(phaseDir, '01-01', { wave: 1, depends_on: [], files_modified: ['src/a.ts'] });
+    writePlanFile(phaseDir, '01-02', { wave: 2, depends_on: [], files_modified: ['src/b.ts'] });
+    writePlanFile(phaseDir, '01-03', { wave: 3, depends_on: [], files_modified: ['src/c.ts'] });
+
+    const raw = captureOutput(() => cmdHierarchyPartition(tmpDir, phaseDir, true));
+    const result = JSON.parse(raw);
+    assert.ok(Array.isArray(result.streams), 'result.streams should be an array');
+    const allPlans = result.streams.flatMap(s => s.plans);
+    assert.ok(allPlans.includes('01-01'), 'should include plan 01-01');
+    assert.ok(allPlans.includes('01-02'), 'should include plan 01-02');
+    assert.ok(allPlans.includes('01-03'), 'should include plan 01-03');
+    // Plans within each stream must appear in wave order
+    const waveOf = { '01-01': 1, '01-02': 2, '01-03': 3 };
+    for (const stream of result.streams) {
+      const waves = stream.plans.map(p => waveOf[p] || 0);
+      for (let i = 1; i < waves.length; i++) {
+        assert.ok(waves[i] >= waves[i - 1], 'plans within stream should be in ascending wave order');
+      }
+    }
+  });
+
+  // FOUND-02b: Cross-wave dependency stays sequential in same stream
+  test('keeps cross-wave dependent plan sequential in same stream as its dependency (FOUND-02b)', () => {
+    const phaseDir = path.join(tmpDir, 'dep-phase');
+    fs.mkdirSync(phaseDir);
+    writePlanFile(phaseDir, '01-01', { wave: 1, depends_on: [], files_modified: ['src/a.ts'] });
+    writePlanFile(phaseDir, '01-02', { wave: 2, depends_on: ['01-01'], files_modified: ['src/b.ts'] });
+
+    const raw = captureOutput(() => cmdHierarchyPartition(tmpDir, phaseDir, true));
+    const result = JSON.parse(raw);
+    const streamWithBoth = result.streams.find(s => s.plans.includes('01-01') && s.plans.includes('01-02'));
+    assert.ok(streamWithBoth, '01-01 and 01-02 should be in the same stream (cross-wave dep)');
+    const idx01 = streamWithBoth.plans.indexOf('01-01');
+    const idx02 = streamWithBoth.plans.indexOf('01-02');
+    assert.ok(idx01 < idx02, '01-01 should appear before 01-02 in the stream');
+  });
+
+  // FOUND-02c: Non-overlapping same-wave plans go to separate streams
+  test('assigns non-overlapping same-wave plans to separate streams (FOUND-02c)', () => {
+    const phaseDir = path.join(tmpDir, 'no-overlap-phase');
+    fs.mkdirSync(phaseDir);
+    writePlanFile(phaseDir, '01-01', { wave: 1, depends_on: [], files_modified: ['src/a.ts'] });
+    writePlanFile(phaseDir, '01-02', { wave: 1, depends_on: [], files_modified: ['src/b.ts'] });
+
+    const raw = captureOutput(() => cmdHierarchyPartition(tmpDir, phaseDir, true));
+    const result = JSON.parse(raw);
+    const stream01 = result.streams.find(s => s.plans.includes('01-01'));
+    const stream02 = result.streams.find(s => s.plans.includes('01-02'));
+    assert.ok(stream01, '01-01 should be in a stream');
+    assert.ok(stream02, '01-02 should be in a stream');
+    assert.notStrictEqual(stream01.name, stream02.name, '01-01 and 01-02 should be in different streams');
+  });
+
+  // FOUND-02c-overlap: Overlapping files in same wave go to same stream
+  test('assigns same-wave plans sharing a file to the same stream (FOUND-02c-overlap)', () => {
+    const phaseDir = path.join(tmpDir, 'overlap-phase');
+    fs.mkdirSync(phaseDir);
+    writePlanFile(phaseDir, '01-01', { wave: 1, depends_on: [], files_modified: ['src/shared.ts'] });
+    writePlanFile(phaseDir, '01-02', { wave: 1, depends_on: [], files_modified: ['src/shared.ts'] });
+
+    const raw = captureOutput(() => cmdHierarchyPartition(tmpDir, phaseDir, true));
+    const result = JSON.parse(raw);
+    const streamWithBoth = result.streams.find(s => s.plans.includes('01-01') && s.plans.includes('01-02'));
+    assert.ok(streamWithBoth, 'Plans sharing a file should be in the same stream');
+  });
+
+  // FOUND-02d: Stream count capped at max_l2_agents
+  test('caps total streams at max_l2_agents when there are more non-overlapping plans (FOUND-02d)', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify({ hierarchy: { max_l2_agents: 2 } }, null, 2),
+      'utf-8'
+    );
+    const phaseDir = path.join(tmpDir, 'cap-phase');
+    fs.mkdirSync(phaseDir);
+    for (let i = 1; i <= 5; i++) {
+      writePlanFile(phaseDir, `01-0${i}`, { wave: 1, depends_on: [], files_modified: [`src/file${i}.ts`] });
+    }
+
+    const raw = captureOutput(() => cmdHierarchyPartition(tmpDir, phaseDir, true));
+    const result = JSON.parse(raw);
+    assert.ok(result.streams.length <= 2, `stream count ${result.streams.length} should be <= 2`);
+    const allPlans = result.streams.flatMap(s => s.plans);
+    assert.strictEqual(allPlans.length, 5, 'all 5 plans should be present across capped streams');
+  });
+
+  // Single plan
+  test('single plan returns exactly one stream with that plan', () => {
+    const phaseDir = path.join(tmpDir, 'single-phase');
+    fs.mkdirSync(phaseDir);
+    writePlanFile(phaseDir, '01-01', { wave: 1, depends_on: [], files_modified: ['src/a.ts'] });
+
+    const raw = captureOutput(() => cmdHierarchyPartition(tmpDir, phaseDir, true));
+    const result = JSON.parse(raw);
+    assert.strictEqual(result.streams.length, 1);
+    assert.deepStrictEqual(result.streams[0].plans, ['01-01']);
+    assert.strictEqual(result.streams[0].worktree_branch, null);
+  });
+
+  // Plan with no files_modified: no overlap
+  test('plan with empty files_modified does not cause file overlap with other plans', () => {
+    const phaseDir = path.join(tmpDir, 'nofiles-phase');
+    fs.mkdirSync(phaseDir);
+    writePlanFile(phaseDir, '01-01', { wave: 1, depends_on: [], files_modified: ['src/a.ts'] });
+    writePlanFile(phaseDir, '01-02', { wave: 1, depends_on: [], files_modified: [] });
+
+    const raw = captureOutput(() => cmdHierarchyPartition(tmpDir, phaseDir, true));
+    const result = JSON.parse(raw);
+    const allPlans = result.streams.flatMap(s => s.plans);
+    assert.ok(allPlans.includes('01-01'), 'should include 01-01');
+    assert.ok(allPlans.includes('01-02'), 'should include 01-02');
+    // Streams should have correct shape
+    for (const stream of result.streams) {
+      assert.ok(typeof stream.name === 'string', 'stream.name should be a string');
+      assert.ok(Array.isArray(stream.plans), 'stream.plans should be an array');
+      assert.strictEqual(stream.worktree_branch, null, 'worktree_branch should be null');
+    }
+  });
+
+  // Output shape validation
+  test('stream objects have name, plans, and worktree_branch: null', () => {
+    const phaseDir = path.join(tmpDir, 'shape-phase');
+    fs.mkdirSync(phaseDir);
+    writePlanFile(phaseDir, '01-01', { wave: 1, depends_on: [], files_modified: ['src/a.ts'] });
+
+    const raw = captureOutput(() => cmdHierarchyPartition(tmpDir, phaseDir, true));
+    const result = JSON.parse(raw);
+    assert.ok(result.streams.length > 0, 'should have at least one stream');
+    const stream = result.streams[0];
+    assert.ok(typeof stream.name === 'string', 'stream.name should be a string');
+    assert.ok(Array.isArray(stream.plans), 'stream.plans should be an array');
+    assert.strictEqual(stream.worktree_branch, null, 'worktree_branch should be null');
+  });
+});
+
+// ─── cmdStateReconcile ────────────────────────────────────────────────────────
+
+// Helper to build a STATE.md string with given parameters
+function buildStateContent({
+  lastUpdated = '2026-01-01T00:00:00Z',
+  status = 'planning',
+  stoppedAt = 'Completed plan',
+  completedPlans = 0,
+  decisions = [],
+  todos = [],
+  sessionInfo = 'Last session: 2026-01-01\nStopped at: Some plan',
+} = {}) {
+  return `---
+gsd_state_version: 1.0
+milestone: v1.0
+status: ${status}
+stopped_at: ${stoppedAt}
+last_updated: "${lastUpdated}"
+progress:
+  completed_plans: ${completedPlans}
+  total_plans: 10
+---
+
+# Project State
+
+## Current Position
+
+Status: ${status}
+
+## Performance Metrics
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| - | - | - | - |
+
+## Accumulated Context
+
+### Decisions
+
+${decisions.length > 0 ? decisions.map(d => `- ${d}`).join('\n') : 'None yet.'}
+
+### Pending Todos
+
+${todos.length > 0 ? todos.map(t => `- ${t}`).join('\n') : 'None yet.'}
+
+### Blockers/Concerns
+
+None.
+
+## Session Continuity
+
+${sessionInfo}
+`;
+}
+
+describe('cmdStateReconcile', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-reconcile-test-'));
+    fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  // FOUND-06a: reads STATE.md from each registered worktree path
+  test('reads STATE.md from each worktree path on disk (FOUND-06a)', () => {
+    const wt1Dir = path.join(tmpDir, '.claude', 'worktrees', 'backend');
+    const wt2Dir = path.join(tmpDir, '.claude', 'worktrees', 'frontend');
+    fs.mkdirSync(path.join(wt1Dir, '.planning'), { recursive: true });
+    fs.mkdirSync(path.join(wt2Dir, '.planning'), { recursive: true });
+
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'STATE.md'),
+      buildStateContent({ lastUpdated: '2026-01-01T00:00:00Z', decisions: ['Decision from main'] }),
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(wt1Dir, '.planning', 'STATE.md'),
+      buildStateContent({ lastUpdated: '2026-02-01T00:00:00Z', decisions: ['Decision from backend'] }),
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(wt2Dir, '.planning', 'STATE.md'),
+      buildStateContent({ lastUpdated: '2026-03-01T00:00:00Z', decisions: ['Decision from frontend'] }),
+      'utf-8'
+    );
+
+    writeRegistry(tmpDir, {
+      worktrees: [
+        { stream: 'backend', branch: 'gsd/hierarchy/2026-01-01T00-00-00-backend', path: '.claude/worktrees/backend', created_at: '2026-01-01T00:00:00Z', status: 'active' },
+        { stream: 'frontend', branch: 'gsd/hierarchy/2026-01-01T00-00-00-frontend', path: '.claude/worktrees/frontend', created_at: '2026-01-01T00:00:00Z', status: 'active' },
+      ],
+    });
+
+    assert.doesNotThrow(() => {
+      cmdStateReconcile(tmpDir, false);
+    });
+
+    const merged = fs.readFileSync(path.join(tmpDir, '.planning', 'STATE.md'), 'utf-8');
+    assert.ok(merged.includes('Decision from main'), 'merged STATE.md should contain decision from main');
+    assert.ok(merged.includes('Decision from backend'), 'merged STATE.md should contain decision from backend');
+    assert.ok(merged.includes('Decision from frontend'), 'merged STATE.md should contain decision from frontend');
+  });
+
+  // FOUND-06b: appends records without duplicates
+  test('appends decisions from worktrees without duplicates (FOUND-06b)', () => {
+    const wt1Dir = path.join(tmpDir, '.claude', 'worktrees', 'wt1');
+    fs.mkdirSync(path.join(wt1Dir, '.planning'), { recursive: true });
+
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'STATE.md'),
+      buildStateContent({ lastUpdated: '2026-01-01T00:00:00Z', decisions: ['Shared decision'] }),
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(wt1Dir, '.planning', 'STATE.md'),
+      buildStateContent({ lastUpdated: '2026-02-01T00:00:00Z', decisions: ['Shared decision', 'Extra decision 1', 'Extra decision 2'] }),
+      'utf-8'
+    );
+
+    writeRegistry(tmpDir, {
+      worktrees: [
+        { stream: 'wt1', branch: 'gsd/hierarchy/wt1', path: '.claude/worktrees/wt1', created_at: '2026-01-01T00:00:00Z', status: 'active' },
+      ],
+    });
+
+    cmdStateReconcile(tmpDir, false);
+
+    const merged = fs.readFileSync(path.join(tmpDir, '.planning', 'STATE.md'), 'utf-8');
+    const sharedCount = (merged.match(/- Shared decision/g) || []).length;
+    assert.strictEqual(sharedCount, 1, 'duplicate decisions should be deduplicated');
+    assert.ok(merged.includes('Extra decision 1'), 'Extra decision 1 should be present');
+    assert.ok(merged.includes('Extra decision 2'), 'Extra decision 2 should be present');
+  });
+
+  // FOUND-06c: last-write-wins by timestamp for scalar frontmatter fields
+  test('uses last-write-wins by timestamp for scalar frontmatter fields (FOUND-06c)', () => {
+    const wt1Dir = path.join(tmpDir, '.claude', 'worktrees', 'wt1');
+    fs.mkdirSync(path.join(wt1Dir, '.planning'), { recursive: true });
+
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'STATE.md'),
+      buildStateContent({ lastUpdated: '2026-01-01T00:00:00Z', status: 'planning', stoppedAt: 'Old plan' }),
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(wt1Dir, '.planning', 'STATE.md'),
+      buildStateContent({ lastUpdated: '2026-03-12T00:00:00Z', status: 'executing', stoppedAt: 'Newer plan' }),
+      'utf-8'
+    );
+
+    writeRegistry(tmpDir, {
+      worktrees: [
+        { stream: 'wt1', branch: 'gsd/hierarchy/wt1', path: '.claude/worktrees/wt1', created_at: '2026-01-01T00:00:00Z', status: 'active' },
+      ],
+    });
+
+    cmdStateReconcile(tmpDir, false);
+
+    const merged = fs.readFileSync(path.join(tmpDir, '.planning', 'STATE.md'), 'utf-8');
+    assert.ok(merged.includes('2026-03-12T00:00:00Z'), 'newer last_updated should win');
+    const hasNewerValue = merged.includes('Newer plan') || merged.includes('executing');
+    assert.ok(hasNewerValue, 'newer scalar values from worktree should win');
+  });
+
+  // FOUND-06d: exactly one YAML frontmatter block
+  test('output has exactly one YAML frontmatter block (FOUND-06d)', () => {
+    const wt1Dir = path.join(tmpDir, '.claude', 'worktrees', 'wt1');
+    fs.mkdirSync(path.join(wt1Dir, '.planning'), { recursive: true });
+
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'STATE.md'),
+      buildStateContent({ lastUpdated: '2026-01-01T00:00:00Z' }),
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(wt1Dir, '.planning', 'STATE.md'),
+      buildStateContent({ lastUpdated: '2026-03-12T00:00:00Z' }),
+      'utf-8'
+    );
+
+    writeRegistry(tmpDir, {
+      worktrees: [
+        { stream: 'wt1', branch: 'gsd/hierarchy/wt1', path: '.claude/worktrees/wt1', created_at: '2026-01-01T00:00:00Z', status: 'active' },
+      ],
+    });
+
+    cmdStateReconcile(tmpDir, false);
+
+    const merged = fs.readFileSync(path.join(tmpDir, '.planning', 'STATE.md'), 'utf-8');
+    const dashCount = (merged.match(/^---$/gm) || []).length;
+    assert.strictEqual(dashCount, 2, `should have exactly 2 --- markers, found ${dashCount}`);
+    const metricsCount = (merged.match(/^## Performance Metrics/gm) || []).length;
+    assert.strictEqual(metricsCount, 1, 'should have exactly one Performance Metrics section');
+    const decisionsCount = (merged.match(/^### Decisions/gm) || []).length;
+    assert.strictEqual(decisionsCount, 1, 'should have exactly one Decisions section');
+  });
+
+  // Edge case: missing worktree STATE.md is skipped gracefully
+  test('skips worktrees with missing STATE.md gracefully', () => {
+    const wt1Dir = path.join(tmpDir, '.claude', 'worktrees', 'missing-wt');
+    fs.mkdirSync(wt1Dir, { recursive: true });
+
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'STATE.md'),
+      buildStateContent({ lastUpdated: '2026-01-01T00:00:00Z', decisions: ['Main decision'] }),
+      'utf-8'
+    );
+
+    writeRegistry(tmpDir, {
+      worktrees: [
+        { stream: 'missing-wt', branch: 'gsd/hierarchy/missing-wt', path: '.claude/worktrees/missing-wt', created_at: '2026-01-01T00:00:00Z', status: 'active' },
+      ],
+    });
+
+    assert.doesNotThrow(() => {
+      cmdStateReconcile(tmpDir, false);
+    });
+
+    const result = fs.readFileSync(path.join(tmpDir, '.planning', 'STATE.md'), 'utf-8');
+    assert.ok(result.includes('Main decision'), 'main decisions should still be present');
+  });
+
+  // Edge case: empty registry produces no changes
+  test('empty registry produces no changes to main STATE.md', () => {
+    const originalContent = buildStateContent({
+      lastUpdated: '2026-01-01T00:00:00Z',
+      decisions: ['Keep this decision'],
+    });
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'STATE.md'), originalContent, 'utf-8');
+    writeRegistry(tmpDir, { worktrees: [] });
+
+    cmdStateReconcile(tmpDir, false);
+
+    const result = fs.readFileSync(path.join(tmpDir, '.planning', 'STATE.md'), 'utf-8');
+    assert.ok(result.includes('Keep this decision'), 'decisions should be preserved when no worktrees registered');
   });
 });
