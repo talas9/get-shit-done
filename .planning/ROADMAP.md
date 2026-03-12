@@ -29,7 +29,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. `gsd-tools.cjs hierarchy-partition` groups a set of plans into non-conflicting streams that respect existing wave dependencies
   4. `gsd-tools.cjs state-reconcile` merges STATE.md task-completion entries from multiple worktrees back to main without data loss
   5. Running GSD with `hierarchy.enabled: false` (the default) produces behavior identical to today — no new code paths are reachable
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 01-01-PLAN.md -- Config schema, registry helpers, worktree lifecycle (create/remove)
+- [ ] 01-02-PLAN.md -- Hierarchy-partition algorithm (dependency-aware plan grouping)
+- [ ] 01-03-PLAN.md -- State-reconcile (merge STATE.md from worktrees to main)
 
 ### Phase 2: Agent Definitions
 **Goal**: The L2 sub-orchestrator persona and the L3 partitioner agent exist with enforced tool restrictions so L1 can spawn them correctly
@@ -75,7 +80,7 @@ Note: Phase 1 and Phase 2 have no shared files and no cross-dependencies — the
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation Utilities | 0/TBD | Not started | - |
+| 1. Foundation Utilities | 0/3 | Not started | - |
 | 2. Agent Definitions | 0/TBD | Not started | - |
 | 3. L1 Dispatch Integration | 0/TBD | Not started | - |
 | 4. Validation and Hardening | 0/TBD | Not started | - |
