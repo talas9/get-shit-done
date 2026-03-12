@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 1 context gathered
-last_updated: "2026-03-12T05:35:23.257Z"
+stopped_at: Completed 01-01-PLAN.md
+last_updated: "2026-03-12T06:33:37.324Z"
 last_activity: 2026-03-11 — Roadmap created, ready to plan Phase 1
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 3
+  completed_plans: 1
   percent: 0
 ---
 
@@ -50,6 +50,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: -
 
 *Updated after each plan completion*
+| Phase 01 P01 | 5min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -62,6 +63,9 @@ Recent decisions affecting current work:
 - L2s are standalone subagents, not agent team teammates: teammates cannot call Agent() (bug #32731), which blocks L2→L3 chain
 - Worktrees required (not optional) when hierarchy is active: separate toggle removed; worktrees are implied by hierarchy.enabled
 - Explicit path injection for worktrees: do not rely on `isolation: worktree` frontmatter (bug #27749); inject absolute path via `<worktree>` tag
+- [Phase 01]: hierarchy.enabled defaults to false — zero behavior change for existing users (feature flag off by default)
+- [Phase 01]: readRegistry returns { worktrees: [] } on any failure — never crashes on missing or corrupt registry
+- [Phase 01]: cmdWorktreeRemove cleans registry entry even when git operations fail — self-healing for orphaned worktrees
 
 ### Pending Todos
 
@@ -74,6 +78,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-12T05:35:23.255Z
-Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-foundation-utilities/01-CONTEXT.md
+Last session: 2026-03-12T06:33:37.322Z
+Stopped at: Completed 01-01-PLAN.md
+Resume file: .planning/phases/01-foundation-utilities/01-01-SUMMARY.md

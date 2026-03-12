@@ -29,7 +29,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. `gsd-tools.cjs hierarchy-partition` groups a set of plans into non-conflicting streams that respect existing wave dependencies
   4. `gsd-tools.cjs state-reconcile` merges STATE.md task-completion entries from multiple worktrees back to main without data loss
   5. Running GSD with `hierarchy.enabled: false` (the default) produces behavior identical to today — no new code paths are reachable
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
 - [ ] 01-01-PLAN.md -- Config schema, registry helpers, worktree lifecycle (create/remove)
@@ -80,7 +80,7 @@ Note: Phase 1 and Phase 2 have no shared files and no cross-dependencies — the
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation Utilities | 0/3 | Not started | - |
+| 1. Foundation Utilities | 1/3 | In Progress|  |
 | 2. Agent Definitions | 0/TBD | Not started | - |
 | 3. L1 Dispatch Integration | 0/TBD | Not started | - |
 | 4. Validation and Hardening | 0/TBD | Not started | - |
