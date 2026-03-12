@@ -13,7 +13,7 @@ This milestone adds an optional 3-tier execution hierarchy (L1 orchestrator → 
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation Utilities** - Worktree lifecycle, stream partitioning, and state reconciliation tooling in gsd-tools.cjs (completed 2026-03-12)
-- [ ] **Phase 2: Agent Definitions** - L2 sub-orchestrator and L3 partitioner agent personas with correct tool restrictions
+- [x] **Phase 2: Agent Definitions** - L2 sub-orchestrator and L3 partitioner agent personas with correct tool restrictions (completed 2026-03-12)
 - [ ] **Phase 3: L1 Dispatch Integration** - execute-phase.md hierarchy dispatch branch wiring L1 to L2 streams
 - [ ] **Phase 4: Validation and Hardening** - End-to-end tests proving hierarchy correctness and zero regression on flat mode
 
@@ -46,7 +46,7 @@ Plans:
   3. A spawned L2 validates L3 completion by checking for the existence of `SUMMARY.md` in the worktree, not by reading its content
   4. `agents/gsd-partitioner.md` exists as an L3 agent that accepts a phase's plan list and returns a structured partition map assigning each plan to a named stream
   5. The partitioner output correctly keeps cross-wave dependencies sequential — plans in different dependency waves are never assigned to the same parallel stream
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 02-01-PLAN.md -- L2 sub-orchestrator agent + mcpServers test assertion
@@ -85,6 +85,6 @@ Note: Phase 1 and Phase 2 have no shared files and no cross-dependencies — the
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation Utilities | 3/3 | Complete   | 2026-03-12 |
-| 2. Agent Definitions | 1/2 | In Progress|  |
+| 2. Agent Definitions | 2/2 | Complete   | 2026-03-12 |
 | 3. L1 Dispatch Integration | 0/TBD | Not started | - |
 | 4. Validation and Hardening | 0/TBD | Not started | - |

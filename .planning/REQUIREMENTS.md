@@ -34,10 +34,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Partitioner
 
-- [ ] **PART-01**: L3 partitioner agent spawned by L1 before L2 dispatch — analyzes all plans in a phase
-- [ ] **PART-02**: Partitioner reads plan dependencies and file overlap to group plans into non-conflicting streams
-- [ ] **PART-03**: Partitioner returns structured partition map (which L2 gets which plans)
-- [ ] **PART-04**: Partition respects existing wave ordering — plans in the same wave can be split across L2s, cross-wave dependencies stay sequential
+- [x] **PART-01**: L3 partitioner agent spawned by L1 before L2 dispatch — analyzes all plans in a phase
+- [x] **PART-02**: Partitioner reads plan dependencies and file overlap to group plans into non-conflicting streams
+- [x] **PART-03**: Partitioner returns structured partition map (which L2 gets which plans)
+- [x] **PART-04**: Partition respects existing wave ordering — plans in the same wave can be split across L2s, cross-wave dependencies stay sequential
 
 ### Dispatch Integration
 
@@ -102,10 +102,10 @@ Requirements for initial release. Each maps to roadmap phases.
 | AGNT-03 | Phase 2 | Complete |
 | AGNT-04 | Phase 2 | Complete |
 | AGNT-05 | Phase 2 | Complete |
-| PART-01 | Phase 2 | Pending |
-| PART-02 | Phase 2 | Pending |
-| PART-03 | Phase 2 | Pending |
-| PART-04 | Phase 2 | Pending |
+| PART-01 | Phase 2 | Complete |
+| PART-02 | Phase 2 | Complete |
+| PART-03 | Phase 2 | Complete |
+| PART-04 | Phase 2 | Complete |
 | DISP-01 | Phase 3 | Pending |
 | DISP-02 | Phase 3 | Pending |
 | DISP-03 | Phase 3 | Pending |
