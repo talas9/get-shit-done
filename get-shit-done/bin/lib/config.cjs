@@ -65,6 +65,7 @@ function cmdConfigEnsureSection(cwd, raw) {
     },
     parallelization: true,
     brave_search: hasBraveSearch,
+    hierarchy: { enabled: false, max_l2_agents: 3 },
   };
   const defaults = {
     ...hardcoded,

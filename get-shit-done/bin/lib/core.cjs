@@ -80,6 +80,7 @@ function loadConfig(cwd) {
     nyquist_validation: true,
     parallelization: true,
     brave_search: false,
+    hierarchy: { enabled: false, max_l2_agents: 3 },
   };
 
   try {
@@ -123,6 +124,7 @@ function loadConfig(cwd) {
       parallelization,
       brave_search: get('brave_search') ?? defaults.brave_search,
       model_overrides: parsed.model_overrides || null,
+      hierarchy: parsed.hierarchy ?? defaults.hierarchy,
     };
   } catch {
     return defaults;

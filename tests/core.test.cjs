@@ -121,6 +121,37 @@ describe('loadConfig', () => {
     const config = loadConfig(tmpDir);
     assert.strictEqual(config.commit_docs, false);
   });
+
+  // FOUND-01a: hierarchy defaults when config has no hierarchy key
+  test('returns hierarchy defaults when config.json has no hierarchy key (FOUND-01a)', () => {
+    writeConfig({ model_profile: 'balanced' });
+    const config = loadConfig(tmpDir);
+    assert.ok(config.hierarchy && typeof config.hierarchy === 'object', 'hierarchy should be an object');
+    assert.strictEqual(config.hierarchy.enabled, false);
+    assert.strictEqual(config.hierarchy.max_l2_agents, 3);
+  });
+
+  // FOUND-01b: hierarchy.enabled reads from config when set
+  test('reads hierarchy.enabled=true from config.json (FOUND-01b)', () => {
+    writeConfig({ hierarchy: { enabled: true, max_l2_agents: 3 } });
+    const config = loadConfig(tmpDir);
+    assert.strictEqual(config.hierarchy.enabled, true);
+  });
+
+  // FOUND-01c: hierarchy.max_l2_agents reads from config when set
+  test('reads hierarchy.max_l2_agents from config.json (FOUND-01c)', () => {
+    writeConfig({ hierarchy: { enabled: true, max_l2_agents: 5 } });
+    const config = loadConfig(tmpDir);
+    assert.strictEqual(config.hierarchy.max_l2_agents, 5);
+  });
+
+  // FOUND-01d: hierarchy defaults when config.json is entirely missing
+  test('returns hierarchy defaults when config.json is missing (FOUND-01d)', () => {
+    const config = loadConfig(tmpDir);
+    assert.ok(config.hierarchy && typeof config.hierarchy === 'object', 'hierarchy should be an object');
+    assert.strictEqual(config.hierarchy.enabled, false);
+    assert.strictEqual(config.hierarchy.max_l2_agents, 3);
+  });
 });
 
 // ─── resolveModelInternal ──────────────────────────────────────────────────────

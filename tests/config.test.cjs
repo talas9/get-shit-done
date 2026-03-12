@@ -63,6 +63,33 @@ describe('config-ensure-section command', () => {
     assert.ok('search_gitignored' in config, 'search_gitignored should exist');
   });
 
+  // FOUND-07a: hierarchy key is written by config-ensure-section
+  test('writes hierarchy key to config.json (FOUND-07a)', () => {
+    const result = runGsdTools('config-ensure-section', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const config = readConfig(tmpDir);
+    assert.ok(config.hierarchy && typeof config.hierarchy === 'object', 'hierarchy key should be an object');
+  });
+
+  // FOUND-07b: hierarchy.enabled defaults to false
+  test('hierarchy.enabled defaults to false in created config (FOUND-07b)', () => {
+    const result = runGsdTools('config-ensure-section', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const config = readConfig(tmpDir);
+    assert.strictEqual(config.hierarchy.enabled, false);
+  });
+
+  // FOUND-07c: hierarchy.max_l2_agents defaults to 3
+  test('hierarchy.max_l2_agents defaults to 3 in created config (FOUND-07c)', () => {
+    const result = runGsdTools('config-ensure-section', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const config = readConfig(tmpDir);
+    assert.strictEqual(config.hierarchy.max_l2_agents, 3);
+  });
+
   test('is idempotent — returns already_exists on second call', () => {
     const first = runGsdTools('config-ensure-section', tmpDir);
     assert.ok(first.success, `First call failed: ${first.error}`);
