@@ -46,7 +46,7 @@ Plans:
   3. A spawned L2 validates L3 completion by checking for the existence of `SUMMARY.md` in the worktree, not by reading its content
   4. `agents/gsd-partitioner.md` exists as an L3 agent that accepts a phase's plan list and returns a structured partition map assigning each plan to a named stream
   5. The partitioner output correctly keeps cross-wave dependencies sequential — plans in different dependency waves are never assigned to the same parallel stream
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 02-01-PLAN.md -- L2 sub-orchestrator agent + mcpServers test assertion
@@ -85,6 +85,6 @@ Note: Phase 1 and Phase 2 have no shared files and no cross-dependencies — the
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation Utilities | 3/3 | Complete   | 2026-03-12 |
-| 2. Agent Definitions | 0/2 | Not started | - |
+| 2. Agent Definitions | 1/2 | In Progress|  |
 | 3. L1 Dispatch Integration | 0/TBD | Not started | - |
 | 4. Validation and Hardening | 0/TBD | Not started | - |

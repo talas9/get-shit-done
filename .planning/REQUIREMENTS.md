@@ -26,11 +26,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Agent Definition
 
-- [ ] **AGNT-01**: `gsd-sub-orchestrator.md` agent definition with restricted tools (Agent + Read only)
-- [ ] **AGNT-02**: `mcpServers: []` in L2 frontmatter to enforce MCP isolation — only L3 agents access MCP
-- [ ] **AGNT-03**: L2 receives explicit worktree path in prompt via `<worktree>` tag (workaround for bug #27749)
-- [ ] **AGNT-04**: L2 validates L3 completion by file existence, not by reading content (context budget enforcement)
-- [ ] **AGNT-05**: L2 spawns L3 executors for its assigned plan group and reports completion status to L1
+- [x] **AGNT-01**: `gsd-sub-orchestrator.md` agent definition with restricted tools (Agent + Read only)
+- [x] **AGNT-02**: `mcpServers: []` in L2 frontmatter to enforce MCP isolation — only L3 agents access MCP
+- [x] **AGNT-03**: L2 receives explicit worktree path in prompt via `<worktree>` tag (workaround for bug #27749)
+- [x] **AGNT-04**: L2 validates L3 completion by file existence, not by reading content (context budget enforcement)
+- [x] **AGNT-05**: L2 spawns L3 executors for its assigned plan group and reports completion status to L1
 
 ### Partitioner
 
@@ -97,11 +97,11 @@ Requirements for initial release. Each maps to roadmap phases.
 | FOUND-05 | Phase 1 | Complete |
 | FOUND-06 | Phase 1 | Complete |
 | FOUND-07 | Phase 1 | Complete |
-| AGNT-01 | Phase 2 | Pending |
-| AGNT-02 | Phase 2 | Pending |
-| AGNT-03 | Phase 2 | Pending |
-| AGNT-04 | Phase 2 | Pending |
-| AGNT-05 | Phase 2 | Pending |
+| AGNT-01 | Phase 2 | Complete |
+| AGNT-02 | Phase 2 | Complete |
+| AGNT-03 | Phase 2 | Complete |
+| AGNT-04 | Phase 2 | Complete |
+| AGNT-05 | Phase 2 | Complete |
 | PART-01 | Phase 2 | Pending |
 | PART-02 | Phase 2 | Pending |
 | PART-03 | Phase 2 | Pending |
