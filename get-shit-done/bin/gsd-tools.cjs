@@ -62,6 +62,7 @@
  *   todo complete <filename>           Move todo from pending to completed
  *
  * Hierarchy Operations:
+ *   hierarchy-partition <phase-dir>    Group plans into non-conflicting parallel streams
  *   worktree-create <stream>           Create a git worktree for a hierarchy stream
  *   worktree-remove <stream>           Remove a git worktree and its registry entry
  *     [--force]                          Succeed even if worktree directory is missing
@@ -587,6 +588,15 @@ async function main() {
         limit: limitIdx !== -1 ? parseInt(args[limitIdx + 1], 10) : 10,
         freshness: freshnessIdx !== -1 ? args[freshnessIdx + 1] : null,
       }, raw);
+      break;
+    }
+
+    case 'hierarchy-partition': {
+      if (!args[1]) {
+        error('phase directory path required');
+      }
+      const resolvedPhaseDir = path.isAbsolute(args[1]) ? args[1] : path.join(cwd, args[1]);
+      hierarchy.cmdHierarchyPartition(cwd, resolvedPhaseDir, raw);
       break;
     }
 
