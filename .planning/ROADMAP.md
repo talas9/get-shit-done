@@ -77,7 +77,11 @@ Plans:
   2. A test run with `hierarchy.enabled: true` completes an L1→L2→L3 flow with real plans, all commits landing in the correct worktree branches (not main)
   3. After a successful hierarchy run, `git worktree list` shows no orphaned worktrees
   4. An L2 spawned as a standalone subagent (not a teammate) successfully calls `Agent()` to spawn an L3 — confirming the teammate tool restriction (bug #32731) does not apply here
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 04-01-PLAN.md -- Unit tests for CLI return-value shapes + E2E fixture creation
+- [ ] 04-02-PLAN.md -- E2E runtime verification with human checkpoint
 
 ## Progress
 
@@ -91,4 +95,4 @@ Note: Phase 1 and Phase 2 have no shared files and no cross-dependencies — the
 | 1. Foundation Utilities | 3/3 | Complete   | 2026-03-12 |
 | 2. Agent Definitions | 2/2 | Complete   | 2026-03-12 |
 | 3. L1 Dispatch Integration | 2/2 | Complete   | 2026-03-12 |
-| 4. Validation and Hardening | 0/TBD | Not started | - |
+| 4. Validation and Hardening | 0/2 | Not started | - |
