@@ -20,7 +20,7 @@ INIT=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" init execute-phase "
 if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 ```
 
-Parse JSON for: `executor_model`, `verifier_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `phase_req_ids`.
+Parse JSON for: `executor_model`, `verifier_model`, `commit_docs`, `parallelization`, `hierarchy_enabled`, `hierarchy_max_l2_agents`, `branching_strategy`, `branch_name`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `phase_req_ids`.
 
 **If `phase_found` is false:** Error — phase directory not found.
 **If `plan_count` is 0:** Error — no plans found in phase.
@@ -77,6 +77,179 @@ Report:
 | 1 | 01-01, 01-02 | {from plan objectives, 3-8 words} |
 | 2 | 01-03 | ... |
 ```
+</step>
+
+<step name="hierarchy_dispatch">
+Conditionally route execution through L2 sub-orchestrator streams when hierarchy mode is active.
+
+**Condition gate:**
+
+```
+IF PARALLELIZATION == true AND HIERARCHY_ENABLED == true:
+  → hierarchy path (steps 1–6 below)
+ELSE:
+  → skip to execute_waves (unchanged flat path)
+```
+
+---
+
+**Step 1 — Spawn partitioner to get stream map:**
+
+Spawn `gsd-partitioner` agent via Task() to partition the phase plans into parallel streams:
+
+```
+Task(
+  subagent_type="gsd-partitioner",
+  prompt="<phase_dir>{phase_dir}</phase_dir>"
+)
+```
+
+Parse the returned JSON for the `streams` array. If any of the following occur, log the reason and skip to `execute_waves`:
+
+- Partitioner fails or returns an error
+- Returned `streams` array is empty
+- Returned `streams` array contains exactly 1 stream (no parallelism benefit — Claude's Discretion optimization)
+
+```
+Hierarchy: {reason} — using flat execution mode
+```
+
+---
+
+**Step 2 — Create worktrees (track created list for cleanup):**
+
+For each stream in the partition output, create a dedicated git worktree:
+
+```bash
+node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" worktree-create {stream.name}
+```
+
+Parse the returned JSON for `path` and `branch` fields. Convert the relative `path` to an absolute path:
+
+```bash
+PROJECT_ROOT=$(git rev-parse --show-toplevel)
+WORKTREE_ABS_PATH="${PROJECT_ROOT}/{path}"
+```
+
+Track all successfully created worktree names in a list for cleanup on partial failure. If ANY `worktree-create` call fails:
+
+1. Run `worktree-remove {name}` for every already-created worktree
+2. Notify: "Hierarchy: worktree-create failed for {stream.name} — using flat execution mode"
+3. Skip to `execute_waves`
+
+---
+
+**Step 3 — Spawn L2 sub-orchestrators:**
+
+Report what's being dispatched before spawning:
+
+```
+## Hierarchy Dispatch
+Spawning {N} L2 sub-orchestrators across {N} worktree streams...
+- Stream {name}: {plan_count} plans → {absolute_worktree_path}
+```
+
+Spawn ALL L2s before waiting for any results. L1 must never block on a single L2 (DISP-02). Use Task() standalone subagent — do NOT use TeamCreate (bug #32731):
+
+```
+Task(
+  subagent_type="gsd-sub-orchestrator",
+  run_in_background=true,
+  prompt="
+    <worktree>{absolute_worktree_path}</worktree>
+    <phase>{phase_slug}</phase>
+    <phase_dir>{phase_dir}</phase_dir>
+    <stream>{ \"name\": \"{stream.name}\", \"plans\": [{plan_list}] }</stream>
+  "
+)
+```
+
+Spawn one Task() call per stream before waiting on any of them. After all are spawned, wait for all background tasks to complete.
+
+---
+
+**Step 4 — Wait for completion and verify:**
+
+After all background L2 tasks complete, read each return value. Parse for the completion prefix:
+
+- `STREAM_COMPLETE: {name}` — stream succeeded
+- `STREAM_FAILED: {name}` — stream failed
+
+Secondary verification: for each plan in each stream, check that the SUMMARY.md exists on disk:
+
+```bash
+ls {worktree_path}/.planning/phases/{phase_dir}/{phase}-{plan}-SUMMARY.md
+```
+
+If ANY L2 returns `STREAM_FAILED` OR a SUMMARY.md is missing for a plan that should have completed:
+
+1. Report which stream/plan failed
+2. Run `worktree-remove {name}` for ALL created worktrees
+3. Notify: "Hierarchy: stream {name} failed — falling back to flat execution mode"
+4. Skip to `execute_waves`
+
+---
+
+**Step 5 — Merge worktrees to main:**
+
+For each stream (in order), merge its branch into the current branch:
+
+```bash
+git merge {worktree_branch} --no-ff -m "merge(hierarchy): stream {stream_name} into main"
+```
+
+If a merge conflict occurs: notify the user and STOP — do NOT fall back to flat execution. Plans have already been executed in the worktrees; re-executing them in flat mode would double-run them.
+
+```
+## Merge Conflict: stream {name}
+
+Stream {name} has a merge conflict that requires manual resolution.
+Plans in this stream were already executed — do not re-run them.
+
+Resolve the conflict with standard git tools, then continue.
+```
+
+---
+
+**Step 6 — Reconcile state and cleanup:**
+
+CRITICAL ORDER: call `state-reconcile` BEFORE `worktree-remove`. The reconcile step reads the worktree registry — remove clears that registry.
+
+```bash
+node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" state-reconcile
+```
+
+Then remove each worktree:
+
+```bash
+node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" worktree-remove {stream_name}
+```
+
+Commit the reconciled state:
+
+```bash
+node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs(phase-{X}): reconcile hierarchy execution" --files .planning/STATE.md .planning/worktree-registry.json
+```
+
+After successful merge and cleanup, skip `execute_waves` — plans are already executed — and proceed directly to `aggregate_results`.
+
+---
+
+**Fallback pattern summary (DISP-06):**
+
+All pre-execution fallback paths (Steps 1–4 failures) follow the same pattern:
+1. Clean up any created worktrees: `worktree-remove {name}` for each in the tracked list
+2. Notify: "Hierarchy execution failed at {step}. Falling back to flat execution mode."
+3. Proceed to `execute_waves` with the same plan inventory, unchanged
+
+Post-execution failures (merge conflicts in Step 5) do NOT fall back — they stop and require manual resolution.
+
+**Anti-patterns:**
+- Do NOT read `hierarchy.enabled` directly from config.json — use INIT JSON output only
+- Do NOT use TeamCreate for L2 spawning — use Task() standalone subagent (bug #32731)
+- Do NOT call `state-reconcile` after `worktree-remove` — reconcile reads the registry that remove clears
+- Do NOT use relative worktree paths in L2 prompt — convert to absolute via `git rev-parse --show-toplevel`
+- Do NOT fall back to flat after a merge conflict — plans already executed, flat would double-run them
 </step>
 
 <step name="execute_waves">
