@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-03-12T06:48:28.503Z"
+stopped_at: Completed 01-03-PLAN.md
+last_updated: "2026-03-12T06:51:40.062Z"
 last_activity: 2026-03-11 — Roadmap created, ready to plan Phase 1
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
+  completed_plans: 3
   percent: 0
 ---
 
@@ -52,6 +52,7 @@ Progress: [░░░░░░░░░░] 0%
 *Updated after each plan completion*
 | Phase 01 P01 | 5min | 2 tasks | 7 files |
 | Phase 01-foundation-utilities P02 | 11min | 2 tasks | 3 files |
+| Phase 01 P03 | 14min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,8 @@ Recent decisions affecting current work:
 - [Phase 01-foundation-utilities]: Union-find chosen for O(n*alpha) file-overlap grouping in hierarchy-partition — simpler and faster than graph traversal for small plan counts
 - [Phase 01-foundation-utilities]: hierarchy-partition stream cap enforced by merging two smallest streams until count <= max_l2_agents
 - [Phase 01-foundation-utilities]: worktree_branch is always null at partition time — set later by worktree-create during dispatch
+- [Phase 01]: Raw frontmatter string preservation in state-reconcile: newest STATE.md's raw YAML used as merge base to avoid serialization drift
+- [Phase 01]: progress.completed_plans uses max-wins in state-reconcile: parallel agents may complete different plans, higher count is more correct than most recent
 
 ### Pending Todos
 
@@ -82,6 +85,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-12T06:48:28.501Z
-Stopped at: Completed 01-02-PLAN.md
-Resume file: None
+Last session: 2026-03-12T06:51:40.060Z
+Stopped at: Completed 01-03-PLAN.md
+Resume file: .planning/phases/01-foundation-utilities/01-03-SUMMARY.md
