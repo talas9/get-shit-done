@@ -62,7 +62,11 @@ Plans:
   3. L1 detects L2 completion via sentinel file presence (`STREAM_COMPLETE.md` or `STREAM_FAILED.md`) rather than blocking on SendMessage delivery
   4. After all L2 streams complete, L1 merges all worktree branches back to main and removes the worktrees
   5. Any hierarchy failure (worktree creation, L2 spawn, merge conflict) automatically falls back to flat execution mode and notifies the user
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md -- Patch init.cjs to expose hierarchy config in execute-phase init output
+- [ ] 03-02-PLAN.md -- Add hierarchy_dispatch step to execute-phase.md workflow
 
 ### Phase 4: Validation and Hardening
 **Goal**: The full L1→L2→L3 execution chain is verified correct and the flat-mode regression is proven
@@ -86,5 +90,5 @@ Note: Phase 1 and Phase 2 have no shared files and no cross-dependencies — the
 |-------|----------------|--------|-----------|
 | 1. Foundation Utilities | 3/3 | Complete   | 2026-03-12 |
 | 2. Agent Definitions | 2/2 | Complete   | 2026-03-12 |
-| 3. L1 Dispatch Integration | 0/TBD | Not started | - |
+| 3. L1 Dispatch Integration | 0/2 | Not started | - |
 | 4. Validation and Hardening | 0/TBD | Not started | - |
